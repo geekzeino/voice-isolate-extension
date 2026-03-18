@@ -39,6 +39,7 @@
       this._onCapture = this._capture.bind(this);
       this._onDraw = this._draw.bind(this);
       this._ro = null;
+      this._lastCaptureTime = 0;
     }
 
     start() {
@@ -147,6 +148,17 @@
 
     _capture(now, _meta) {
       if (!this.running) return;
+      // Throttle to ~30fps wall-clock so buffer duration stays consistent
+      // at any playback speed. At 2x, RVFC fires 2x faster — without
+      // throttling, 200 slots fills in 3.3s instead of 6.6s and the
+      // effective delay shortens below delayMs.
+      if (now - this._lastCaptureTime < 33) {
+        if (this.video.requestVideoFrameCallback) {
+          this.video.requestVideoFrameCallback(this._onCapture);
+        }
+        return;
+      }
+      this._lastCaptureTime = now;
       const v = this.video;
       const idx = this.writeHead;
       const frame = this.buffer[idx];
