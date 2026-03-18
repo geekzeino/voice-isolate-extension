@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "Voice Isolate",
+  "version": "3.2",
+  "description": "Real-time voice isolation — strips music/SFX, keeps vocals",
+  "permissions": ["nativeMessaging", "storage", "tabs", "activeTab"],
+  "action": {
+    "default_icon": {
+      "16": "icons/off-16.png",
+      "48": "icons/off-48.png",
+      "128": "icons/off-128.png"
+    },
+    "default_title": "Voice Isolate",
+    "default_popup": "popup.html"
+  },
+  "icons": {
+    "16": "icons/off-16.png",
+    "48": "icons/off-48.png",
+    "128": "icons/off-128.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ]
+}

@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  width: 320px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  font-size: 13px;
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+  border-bottom: 1px solid #2a2a4a;
+}
+.tab {
+  flex: 1;
+  padding: 10px;
+  text-align: center;
+  cursor: pointer;
+  color: #888;
+  font-weight: 500;
+  transition: all 0.2s;
+  border-bottom: 2px solid transparent;
+}
+.tab:hover { color: #ccc; }
+.tab.active {
+  color: #22c55e;
+  border-bottom-color: #22c55e;
+}
+
+.tab-content { display: none; padding: 16px; }
+.tab-content.active { display: block; }
+
+/* Controls tab */
+.power-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid #2a2a4a;
+  margin-bottom: 16px;
+}
+.power-label {
+  font-size: 15px;
+  font-weight: 600;
+}
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  margin-right: 8px;
+  display: inline-block;
+}
+.status-dot.on { background: #22c55e; }
+
+/* Toggle switch */
+.switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  cursor: pointer;
+}
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider-track {
+  position: absolute;
+  inset: 0;
+  background: #3a3a5a;
+  border-radius: 12px;
+  transition: 0.2s;
+}
+.slider-track::before {
+  content: '';
+  position: absolute;
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background: #e0e0e0;
+  border-radius: 50%;
+  transition: 0.2s;
+}
+.switch input:checked + .slider-track {
+  background: #22c55e;
+}
+.switch input:checked + .slider-track::before {
+  transform: translateX(20px);
+}
+
+/* Sliders */
+.slider-group {
+  margin-bottom: 14px;
+}
+.slider-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.slider-label { color: #aaa; font-size: 12px; }
+.slider-value { color: #22c55e; font-size: 12px; font-weight: 600; }
+
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: #3a3a5a;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #22c55e;
+  cursor: pointer;
+  border: 2px solid #1a1a2e;
+}
+input[type="range"]::-webkit-slider-thumb:hover {
+  background: #16a34a;
+}
+
+.info {
+  color: #666;
+  font-size: 11px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #2a2a4a;
+}
+
+/* Sites tab */
+.site-current {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: #2a2a4a;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+.site-current-url {
+  font-size: 12px;
+  color: #ccc;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+.btn {
+  padding: 5px 12px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: 0.2s;
+}
+.btn-add {
+  background: #22c55e;
+  color: #fff;
+}
+.btn-add:hover { background: #16a34a; }
+.btn-add:disabled {
+  background: #3a3a5a;
+  color: #666;
+  cursor: default;
+}
+.btn-remove {
+  background: transparent;
+  color: #ef4444;
+  padding: 2px 6px;
+  font-size: 16px;
+}
+.btn-remove:hover { color: #dc2626; }
+
+.sites-header {
+  font-size: 11px;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.site-list {
+  max-height: 200px;
+  overflow-y: auto;
+}
+.site-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 0;
+  border-bottom: 1px solid #2a2a4a;
+}
+.site-item:last-child { border-bottom: none; }
+.site-name {
+  font-size: 12px;
+  color: #ccc;
+}
+.empty-state {
+  color: #555;
+  font-size: 12px;
+  text-align: center;
+  padding: 20px;
+}
+</style>
+</head>
+<body>
+
+<div class="tabs">
+  <div class="tab active" data-tab="controls">Controls</div>
+  <div class="tab" data-tab="sites">Sites</div>
+</div>
+
+<!-- Controls Tab -->
+<div id="controls" class="tab-content active">
+  <div class="power-row">
+    <div style="display:flex;align-items:center">
+      <span class="status-dot" id="statusDot"></span>
+      <span class="power-label" id="statusLabel">OFF</span>
+    </div>
+    <label class="switch">
+      <input type="checkbox" id="powerToggle">
+      <span class="slider-track"></span>
+    </label>
+  </div>
+
+  <div class="slider-group">
+    <div class="slider-header">
+      <span class="slider-label">Voice Volume</span>
+      <span class="slider-value" id="voiceVal">100%</span>
+    </div>
+    <input type="range" id="voiceSlider" min="0" max="150" value="100">
+  </div>
+
+  <div class="slider-group">
+    <div class="slider-header">
+      <span class="slider-label">Music / SFX Bleed</span>
+      <span class="slider-value" id="bleedVal">0%</span>
+    </div>
+    <input type="range" id="bleedSlider" min="0" max="100" value="0">
+  </div>
+
+  <div class="slider-group">
+    <div class="slider-header">
+      <span class="slider-label">Video Sync Delay</span>
+      <span class="slider-value" id="syncVal">6200ms</span>
+    </div>
+    <input type="range" id="syncSlider" min="0" max="15000" step="50" value="6200">
+  </div>
+
+  <div class="info">
+    GPU: RTX 3090 &middot; Ctrl+Super+V to toggle
+  </div>
+</div>
+
+<!-- Sites Tab -->
+<div id="sites" class="tab-content">
+  <div class="site-current">
+    <span class="site-current-url" id="currentSite">—</span>
+    <button class="btn btn-add" id="addSiteBtn">Add</button>
+  </div>
+
+  <div class="sites-header">Auto-enable on these sites</div>
+  <div class="site-list" id="siteList">
+    <div class="empty-state">No sites added yet</div>
+  </div>
+</div>
+
+<script src="popup.js"></script>
+</body>
+</html>

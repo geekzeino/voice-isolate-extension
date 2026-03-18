@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Voice Isolate — Debug</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font: 13px/1.5 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  background: #0d1117; color: #c9d1d9; padding: 16px;
+}
+h1 { font-size: 16px; color: #58a6ff; margin-bottom: 12px; }
+h2 {
+  font-size: 13px; color: #8b949e; text-transform: uppercase;
+  letter-spacing: 1px; margin: 16px 0 8px; padding-bottom: 4px;
+  border-bottom: 1px solid #21262d;
+}
+
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.card {
+  background: #161b22; border: 1px solid #21262d; border-radius: 8px;
+  padding: 12px; overflow: hidden;
+}
+.card.full { grid-column: 1 / -1; }
+.card.error { border-color: #f85149; }
+.card.ok { border-color: #3fb950; }
+.card.warn { border-color: #d29922; }
+
+table { width: 100%; border-collapse: collapse; }
+td { padding: 3px 8px; vertical-align: top; }
+td:first-child { color: #8b949e; white-space: nowrap; width: 140px; }
+td:last-child { color: #c9d1d9; word-break: break-all; }
+
+.val { color: #79c0ff; }
+.val.on { color: #3fb950; }
+.val.off { color: #f85149; }
+.val.warn { color: #d29922; }
+.val.num { color: #d2a8ff; }
+
+.log {
+  font-size: 11px; color: #8b949e; max-height: 200px;
+  overflow-y: auto; background: #0d1117; padding: 6px;
+  border-radius: 4px; margin-top: 6px;
+}
+.log div { padding: 1px 0; border-bottom: 1px solid #161b22; }
+
+.actions { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+.btn {
+  padding: 6px 14px; border: 1px solid #30363d; border-radius: 6px;
+  background: #21262d; color: #c9d1d9; cursor: pointer; font: inherit;
+}
+.btn:hover { background: #30363d; border-color: #8b949e; }
+.btn.danger { border-color: #f85149; color: #f85149; }
+.btn.danger:hover { background: #f8514922; }
+
+#status { position: fixed; top: 8px; right: 16px; font-size: 11px; color: #8b949e; }
+#error-banner {
+  display: none; background: #f8514933; border: 1px solid #f85149;
+  color: #f85149; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px;
+}
+</style>
+</head>
+<body>
+
+<h1>Voice Isolate - Diagnostics</h1>
+<div id="error-banner"></div>
+<span id="status">polling...</span>
+
+<div class="grid">
+  <!-- Background / Service Worker -->
+  <div class="card" id="bg-card">
+    <h2>Background (Service Worker)</h2>
+    <table id="bg-table"><tr><td colspan="2">Loading...</td></tr></table>
+  </div>
+
+  <!-- Native Host (Processor) -->
+  <div class="card" id="native-card">
+    <h2>Native Host (Processor)</h2>
+    <table id="native-table"><tr><td colspan="2">Loading...</td></tr></table>
+  </div>
+
+  <!-- Per-Tab Content Scripts -->
+  <div class="card full" id="tabs-card">
+    <h2>Content Scripts (per tab/frame)</h2>
+    <div id="tabs-content">Loading...</div>
+  </div>
+
+  <!-- Storage -->
+  <div class="card" id="storage-card">
+    <h2>Storage</h2>
+    <table id="storage-table"><tr><td colspan="2">Loading...</td></tr></table>
+  </div>
+
+  <!-- Processor Log (from /tmp) -->
+  <div class="card" id="log-card">
+    <h2>Processor Log</h2>
+    <div class="log" id="proc-log">Not available from extension</div>
+  </div>
+</div>
+
+<div class="actions">
+  <button class="btn" onclick="forceRefresh()">Force Refresh All</button>
+  <button class="btn" onclick="togglePower()">Toggle Power</button>
+  <button class="btn" onclick="resetDelay()">Reset Delay to 6200ms</button>
+  <button class="btn danger" onclick="clearMigration()">Clear Migration Flag</button>
+</div>
+
+<script src="debug.js"></script>
+</body>
+</html>
