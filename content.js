@@ -12,7 +12,7 @@
 (() => {
   "use strict";
 
-  let delayMs = 6200;
+  let delayMs = 8200;
   const POLL_INTERVAL = 2000;
 
   let active = false;
@@ -29,7 +29,7 @@
       this.canvas = null;
       this.ctx = null;
       this.buffer = [];
-      this.maxBuffer = 200;  // ~6s at 24-30fps + headroom
+      this.maxBuffer = 300;  // ~10s at 30fps — covers 8.2s delay + headroom
       this.writeHead = 0;    // next slot to write into
       this.readHead = -1;    // last slot drawn (-1 = none yet)
       this.count = 0;        // total frames written (for fullness check)
@@ -68,11 +68,12 @@
       this.canvas = c;
       this.ctx = c.getContext("2d");
 
+      // Pre-allocate 1x1 canvases (nearly free) — resized on first capture.
+      // Avoids both the 1.6GB upfront spike AND per-frame createElement overhead.
       this.buffer = [];
       for (let i = 0; i < this.maxBuffer; i++) {
         const fc = document.createElement("canvas");
-        fc.width = this.video.videoWidth || 1920;
-        fc.height = this.video.videoHeight || 1080;
+        fc.width = 1; fc.height = 1;
         this.buffer.push({ canvas: fc, ctx: fc.getContext("2d"), ts: 0 });
       }
 
@@ -104,11 +105,12 @@
     }
 
     _resetBuffer(reason) {
+      if (!this.running) return;
       console.log("[VoiceIsolate] Buffer reset: " + reason);
       this.writeHead = 0;
       this.readHead = -1;
       this.count = 0;
-      for (let i = 0; i < this.maxBuffer; i++) {
+      for (let i = 0; i < this.buffer.length; i++) {
         this.buffer[i].ts = 0;
       }
     }
@@ -148,11 +150,13 @@
 
     _capture(now, _meta) {
       if (!this.running) return;
-      // Throttle to ~30fps wall-clock so buffer duration stays consistent
-      // at any playback speed. At 2x, RVFC fires 2x faster — without
-      // throttling, 200 slots fills in 3.3s instead of 6.6s and the
-      // effective delay shortens below delayMs.
-      if (now - this._lastCaptureTime < 33) {
+      // Only throttle at high playback rates to prevent buffer overflow.
+      // At 1x, capture every RVFC frame for maximum smoothness.
+      // At 2x+, RVFC fires 2x faster — without throttling, 200 slots
+      // fills in 3.3s instead of 6.6s and the effective delay shortens.
+      // At >1x, RVFC fires faster — throttle to ~30fps wall-clock so
+      // 200 buffer slots always cover 6.6s. At 1x, capture every frame.
+      if (this.video.playbackRate > 1.05 && now - this._lastCaptureTime < 33) {
         if (this.video.requestVideoFrameCallback) {
           this.video.requestVideoFrameCallback(this._onCapture);
         }
@@ -181,8 +185,9 @@
           this.readHead = (this.readHead + 1) % this.maxBuffer;
         }
       } catch (e) {
-        console.warn("[VoiceIsolate] drawImage failed (DRM?), disabling sync:", e.message);
-        this.video.style.opacity = this._origOpacity;
+        console.warn("[VoiceIsolate] drawImage failed (DRM?), stopping syncer:", e.message);
+        this.stop();
+        return; // Don't re-register RVFC — syncer is dead
       }
 
       if (v.requestVideoFrameCallback) {
@@ -207,7 +212,6 @@
         }
 
         // Walk forward looking for frames ready to display
-        let advanced = false;
         for (let steps = 0; steps < filled; steps++) {
           const idx = (searchStart + steps) % this.maxBuffer;
           if (idx === this.writeHead) break; // caught up to writer
@@ -215,7 +219,6 @@
           if (frame.ts === 0) break;
           if (now - frame.ts < delayMs) break;
           this.readHead = idx;
-          advanced = true;
         }
       }
 
@@ -742,11 +745,11 @@
       });
       this._dlog("S4 watch root: " + watchRoot.tagName + "." + (watchRoot.className?.toString?.()?.substring(0, 30) || ""));
 
-      // Also poll periodically (some players update text without DOM mutations)
+      // Poll periodically — slow (2s) until container found, then fast (300ms)
       this._owPoll = setInterval(() => {
         if (!this._running) return;
         this._scanForTextOverlays();
-      }, 300);
+      }, 2000);
 
       this._dlog("S4 overlay watcher started");
     }
@@ -821,9 +824,16 @@
           if (isControl) continue;
         } catch {}
 
-        // Found a subtitle overlay!
+        // Found a subtitle overlay — switch to fast polling
         this._owFoundContainer = el;
         this._activeStrategy = "s4-overlay";
+        if (this._owPoll) {
+          clearInterval(this._owPoll);
+          this._owPoll = setInterval(() => {
+            if (!this._running) return;
+            this._scanForTextOverlays();
+          }, 300);
+        }
         this._dlog("S4 found: " + el.tagName + "." + (el.className?.toString?.()?.substring(0, 40) || "") + " = " + text.substring(0, 30));
 
         // Hide the original text — use opacity instead of visibility to avoid
@@ -895,7 +905,9 @@
     for (const v of videos) {
       if (v.readyState >= 2 && v.videoWidth > 0) return v;
     }
-    return videos.length > 0 ? videos[0] : null;
+    // Don't return unready videos — syncer can't capture from them
+    // and would fill buffer with blank 1x1 frames
+    return null;
   }
 
   function activate() {
@@ -1038,19 +1050,18 @@
   });
 
   // Load per-site delay, fallback to global, fallback to default 6200
-  // Auto-migrate: old defaults (1650-3000) are from v8 (2s segments).
-  // v9 uses 10s segments → default 6200ms. Reset stale values.
+  // Auto-migrate: old defaults were from smaller segments.
+  // v10 uses 10s segments → default 8200ms. Reset stale values.
   const hostname = location.hostname.replace(/^www\./, "");
   const siteDelayKey = "syncDelay:" + hostname;
-  chrome.storage.local.get(["syncDelay", siteDelayKey, "_delayMigrated"], (data) => {
-    if (!data._delayMigrated) {
-      // One-time migration: clear old delays so new default takes effect
-      const toClear = {};
-      if (data.syncDelay != null && data.syncDelay < 5000) toClear.syncDelay = 6200;
-      if (data[siteDelayKey] != null && data[siteDelayKey] < 5000) toClear[siteDelayKey] = 6200;
-      toClear._delayMigrated = true;
+  chrome.storage.local.get(["syncDelay", siteDelayKey, "_delayMigrated", "_delayMigratedV10"], (data) => {
+    if (!data._delayMigratedV10) {
+      // v10 migration: update old 6200ms defaults to 8200ms
+      const toClear = { _delayMigratedV10: true, _delayMigrated: true };
+      if (data.syncDelay != null && data.syncDelay <= 6200) toClear.syncDelay = 8200;
+      if (data[siteDelayKey] != null && data[siteDelayKey] <= 6200) toClear[siteDelayKey] = 8200;
       chrome.storage.local.set(toClear);
-      delayMs = 6200;
+      delayMs = 8200;
     } else {
       if (data[siteDelayKey] != null) {
         delayMs = data[siteDelayKey];
